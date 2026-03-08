@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1117">
+<link rel="manifest" href="manifest.json">
+<title>Selezione Candidati</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #242834;
+  --border: #2e3240;
+  --gold: #c8a46e;
+  --gold-dim: #a08050;
+  --gold-light: #e0c898;
+  --text: #e8e6e1;
+  --text-dim: #8a8d97;
+  --danger: #c45050;
+  --danger-bg: rgba(196,80,80,0.12);
+  --success: #5a9e6f;
+  --radius: 12px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ── Views ── */
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+.view.active { display: flex; }
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+  min-height: 60px;
+}
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.header .subtitle {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 8px 4px;
+  font-family: inherit;
+}
+.back-btn svg { flex-shrink:0; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 18px;
+  transition: all 0.15s;
+}
+.btn-gold {
+  background: var(--gold);
+  color: var(--bg);
+}
+.btn-gold:active { background: var(--gold-dim); }
+.btn-outline {
+  background: transparent;
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+}
+.btn-outline:active { background: rgba(200,164,110,0.1); }
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.btn-danger:active { opacity: 0.7; }
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 16px rgba(200,164,110,0.25);
+  transition: transform 0.15s;
+}
+.btn-icon:active { transform: scale(0.92); }
+
+/* ── Scrollable area ── */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 100px;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60%;
+  text-align: center;
+  color: var(--text-dim);
+}
+.empty-state svg { margin-bottom: 16px; opacity: 0.4; }
+.empty-state p { font-size: 0.95rem; margin-bottom: 24px; }
+
+/* ── Candidate card ── */
+.candidate-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  overflow: hidden;
+}
+.candidate-card.dragging {
+  transform: scale(1.03);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  opacity: 0.9;
+  z-index: 100;
+}
+.candidate-card.drag-over {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.rank-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.rank-badge.top { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+.card-info { flex:1; min-width:0; }
+.card-name {
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-meta {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.drag-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.drag-handle:active { cursor: grabbing; }
+.card-scores {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.score-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-right: 1px solid var(--border);
+}
+.score-cell:last-child { border-right: none; }
+.score-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.score-input {
+  width: 44px;
+  height: 34px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--gold-light);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  font-family: inherit;
+  outline: none;
+}
+.score-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(200,164,110,0.2);
+}
+.score-avg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  background: rgba(200,164,110,0.06);
+}
+.avg-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: calc(24px + var(--safe-bottom));
+  right: 20px;
+  z-index: 50;
+}
+
+/* ── Forms ── */
+.form-group {
+  margin-bottom: 20px;
+}
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.form-input, .form-textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(200,164,110,0.15);
+}
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.form-input::placeholder, .form-textarea::placeholder {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+/* ── Custom fields ── */
+.custom-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.custom-field-row .form-input { flex:1; }
+.remove-field-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--danger-bg);
+  color: var(--danger);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+
+/* ── Detail view ── */
+.detail-header-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.detail-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.detail-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.detail-custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.detail-field {
+  font-size: 0.88rem;
+}
+.detail-field-label {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.detail-field-value {
+  color: var(--text);
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+.detail-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+.detail-scores-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.detail-score-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+}
+.detail-score-card.avg {
+  background: rgba(200,164,110,0.08);
+  border-color: var(--gold-dim);
+}
+.detail-score-name {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.detail-score-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.detail-score-card.avg .detail-score-value { color: var(--gold); }
+
+.notes-area {
+  width: 100%;
+  min-height: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+}
+.notes-area:focus {
+  border-color: var(--gold);
+}
+
+.bottom-actions {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.bottom-actions .btn { flex:1; }
+
+/* ── Confirm dialog ── */
+.dialog-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.dialog-overlay.active { display: flex; }
+.dialog-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+}
+.dialog-box h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+.dialog-box p {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+.dialog-buttons {
+  display: flex;
+  gap: 10px;
+}
+.dialog-buttons .btn { flex:1; }
+
+/* ── Transitions ── */
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
+.view.active { animation: fadeIn 0.2s ease; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ LIST VIEW ═══════ -->
+<div id="listView" class="view active">
+  <div class="header">
+    <div>
+      <h1>Selezione Candidati</h1>
+      <div class="subtitle" id="candidateCount"></div>
+    </div>
+  </div>
+  <div class="scroll-area" id="candidateList"></div>
+  <div class="fab">
+    <button class="btn-icon" onclick="showAddView()" aria-label="Aggiungi candidato">+</button>
+  </div>
+</div>
+
+<!-- ═══════ ADD / EDIT VIEW ═══════ -->
+<div id="addView" class="view">
+  <div class="header">
+    <button class="back-btn" onclick="showListView()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Indietro
+    </button>
+    <h1 id="addViewTitle">Nuovo Candidato</h1>
+    <div style="width:70px"></div>
+  </div>
+  <div class="scroll-area">
+    <div class="form-group">
+      <label class="form-label">Nome</label>
+      <input type="text" class="form-input" id="fieldName" placeholder="Nome">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cognome</label>
+      <input type="text" class="form-input" id="fieldSurname" placeholder="Cognome">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Campi personalizzati</label>
+      <div id="customFieldsContainer"></div>
+      <button class="btn btn-outline" onclick="addCustomFieldInput()" style="margin-top:8px; width:100%;">
+        + Aggiungi campo
+      </button>
+    </div>
+  </div>
+  <div class="bottom-actions">
+    <button class="btn btn-outline" onclick="showListView()">Annulla</button>
+    <button class="btn btn-gold" id="saveBtn" onclick="saveCandidate()">Salva</button>
+  </div>
+</div>
+
+<!-- ═══════ DETAIL VIEW ═══════ -->
+<div id="detailView" class="view">
+  <div class="header">
+    <button class="back-btn" onclick="showListView()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Lista
+    </button>
+    <h1 id="detailTitle">Dettaglio</h1>
+    <button class="back-btn" onclick="editCurrentCandidate()">Modifica</button>
+  </div>
+  <div class="scroll-area" id="detailContent"></div>
+  <div class="bottom-actions">
+    <button class="btn btn-danger" onclick="confirmDeleteCandidate()">Elimina candidato</button>
+  </div>
+</div>
+
+<!-- ═══════ DELETE DIALOG ═══════ -->
+<div class="dialog-overlay" id="deleteDialog">
+  <div class="dialog-box">
+    <h3>Eliminare questo candidato?</h3>
+    <p>Questa azione è irreversibile.</p>
+    <div class="dialog-buttons">
+      <button class="btn btn-outline" onclick="closeDialog()">Annulla</button>
+      <button class="btn btn-danger" onclick="deleteCandidate()">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──
+const SCORE_LABELS = ['Criterio 1', 'Criterio 2', 'Criterio 3'];
+const DB_KEY = 'selezione_candidati_data';
+
+let candidates = [];
+let editingId = null;
+let viewingId = null;
+let dragSrcIndex = null;
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) candidates = JSON.parse(raw);
+  } catch(e) { candidates = []; }
+}
+function saveData() {
+  localStorage.setItem(DB_KEY, JSON.stringify(candidates));
+}
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+// ── Render list ──
+function renderList() {
+  const container = document.getElementById('candidateList');
+  const countEl = document.getElementById('candidateCount');
+
+  if (candidates.length === 0) {
+    countEl.textContent = '';
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M19 8v6M22 11h-6"/>
+        </svg>
+        <p>Nessun candidato aggiunto.<br>Tocca <strong>+</strong> per iniziare.</p>
+      </div>`;
+    return;
+  }
+
+  countEl.textContent = candidates.length + ' candidat' + (candidates.length === 1 ? 'o' : 'i');
+
+  container.innerHTML = candidates.map((c, i) => {
+    const avg = calcAvg(c.scores);
+    const customPreview = c.customFields
+      .filter(f => f.label && f.value)
+      .map(f => f.value)
+      .join(' · ');
+
+    return `
+    <div class="candidate-card" data-index="${i}" id="card-${i}">
+      <div class="card-main">
+        <div class="drag-handle" 
+             ontouchstart="dragStart(event, ${i})" 
+             ontouchmove="dragMove(event)" 
+             ontouchend="dragEnd(event, ${i})"
+             onmousedown="dragStart(event, ${i})">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+            <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+          </svg>
+        </div>
+        <div class="rank-badge ${i === 0 ? 'top' : ''}">${i + 1}</div>
+        <div class="card-info" onclick="showDetail('${c.id}')">
+          <div class="card-name">${esc(c.name)} ${esc(c.surname)}</div>
+          ${customPreview ? `<div class="card-meta">${esc(customPreview)}</div>` : ''}
+        </div>
+      </div>
+      <div class="card-scores">
+        ${SCORE_LABELS.map((label, si) => `
+          <div class="score-cell">
+            <div class="score-label">${esc(label)}</div>
+            <input type="number" class="score-input" min="1" max="10" 
+                   value="${c.scores[si] || ''}" 
+                   placeholder="–"
+                   onfocus="this.select()"
+                   oninput="updateScore('${c.id}', ${si}, this.value)">
+          </div>
+        `).join('')}
+        <div class="score-cell score-avg">
+          <div class="score-label">Media</div>
+          <div class="avg-value" id="avg-${c.id}">${avg || '–'}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function calcAvg(scores) {
+  const valid = scores.filter(s => s !== null && s !== undefined && s !== '');
+  if (valid.length === 0) return null;
+  return (valid.reduce((a,b) => a + Number(b), 0) / valid.length).toFixed(1);
+}
+
+function updateScore(id, scoreIndex, val) {
+  const c = candidates.find(x => x.id === id);
+  if (!c) return;
+  const num = parseInt(val);
+  c.scores[scoreIndex] = (isNaN(num) || num < 1 || num > 10) ? null : num;
+  saveData();
+  const avgEl = document.getElementById('avg-' + id);
+  if (avgEl) avgEl.textContent = calcAvg(c.scores) || '–';
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Drag & reorder (touch) ──
+let dragEl = null, dragClone = null, dragStartY = 0, dragOffsetY = 0;
+let cardPositions = [];
+
+function dragStart(e, index) {
+  if (e.type === 'mousedown' && e.button !== 0) return;
+  dragSrcIndex = index;
+  dragEl = document.getElementById('card-' + index);
+
+  const touch = e.touches ? e.touches[0] : e;
+  const rect = dragEl.getBoundingClientRect();
+  dragOffsetY = touch.clientY - rect.top;
+  dragStartY = touch.clientY;
+
+  // Capture card positions
+  cardPositions = [];
+  document.querySelectorAll('.candidate-card').forEach((card, i) => {
+    const r = card.getBoundingClientRect();
+    cardPositions.push({ index: i, top: r.top, bottom: r.bottom, mid: r.top + r.height/2 });
+  });
+
+  if (e.type === 'mousedown') {
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', (ev) => dragEnd(ev, index), { once: true });
+  }
+}
+
+function dragMove(e) {
+  if (dragSrcIndex === null) return;
+  e.preventDefault();
+  const touch = e.touches ? e.touches[0] : e;
+  const dy = Math.abs(touch.clientY - dragStartY);
+
+  if (dy > 8 && !dragEl.classList.contains('dragging')) {
+    dragEl.classList.add('dragging');
+  }
+
+  if (!dragEl.classList.contains('dragging')) return;
+
+  // Find target
+  document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('drag-over'));
+  for (const pos of cardPositions) {
+    if (pos.index === dragSrcIndex) continue;
+    if (touch.clientY > pos.top && touch.clientY < pos.bottom) {
+      document.getElementById('card-' + pos.index)?.classList.add('drag-over');
+    }
+  }
+}
+
+function dragEnd(e, index) {
+  if (dragSrcIndex === null) return;
+  const touch = e.changedTouches ? e.changedTouches[0] : e;
+
+  document.querySelectorAll('.candidate-card').forEach(c => {
+    c.classList.remove('dragging');
+    c.classList.remove('drag-over');
+  });
+
+  // Find drop target
+  let targetIndex = null;
+  for (const pos of cardPositions) {
+    if (pos.index === dragSrcIndex) continue;
+    if (touch.clientY > pos.top && touch.clientY < pos.bottom) {
+      targetIndex = pos.index;
+      break;
+    }
+  }
+
+  if (targetIndex !== null && targetIndex !== dragSrcIndex) {
+    const item = candidates.splice(dragSrcIndex, 1)[0];
+    candidates.splice(targetIndex, 0, item);
+    saveData();
+    renderList();
+  }
+
+  dragSrcIndex = null;
+  dragEl = null;
+  document.removeEventListener('mousemove', dragMove);
+}
+
+// ── Add/Edit view ──
+function showAddView() {
+  editingId = null;
+  document.getElementById('addViewTitle').textContent = 'Nuovo Candidato';
+  document.getElementById('fieldName').value = '';
+  document.getElementById('fieldSurname').value = '';
+  document.getElementById('customFieldsContainer').innerHTML = '';
+  addCustomFieldInput();
+  switchView('addView');
+}
+
+function editCurrentCandidate() {
+  const c = candidates.find(x => x.id === viewingId);
+  if (!c) return;
+  editingId = c.id;
+  document.getElementById('addViewTitle').textContent = 'Modifica Candidato';
+  document.getElementById('fieldName').value = c.name;
+  document.getElementById('fieldSurname').value = c.surname;
+
+  const container = document.getElementById('customFieldsContainer');
+  container.innerHTML = '';
+  if (c.customFields.length === 0) {
+    addCustomFieldInput();
+  } else {
+    c.customFields.forEach(f => addCustomFieldInput(f.label, f.value));
+  }
+  switchView('addView');
+}
+
+function addCustomFieldInput(label = '', value = '') {
+  const container = document.getElementById('customFieldsContainer');
+  const row = document.createElement('div');
+  row.className = 'custom-field-row';
+  row.innerHTML = `
+    <input type="text" class="form-input" placeholder="Etichetta" value="${esc(label)}" style="flex:0.8">
+    <input type="text" class="form-input" placeholder="Valore" value="${esc(value)}" style="flex:1.2">
+    <button class="remove-field-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  container.appendChild(row);
+}
+
+function saveCandidate() {
+  const name = document.getElementById('fieldName').value.trim();
+  const surname = document.getElementById('fieldSurname').value.trim();
+  if (!name && !surname) {
+    document.getElementById('fieldName').focus();
+    return;
+  }
+
+  const customFields = [];
+  document.querySelectorAll('#customFieldsContainer .custom-field-row').forEach(row => {
+    const inputs = row.querySelectorAll('.form-input');
+    const label = inputs[0].value.trim();
+    const value = inputs[1].value.trim();
+    if (label || value) customFields.push({ label, value });
+  });
+
+  if (editingId) {
+    const c = candidates.find(x => x.id === editingId);
+    if (c) {
+      c.name = name;
+      c.surname = surname;
+      c.customFields = customFields;
+    }
+    editingId = null;
+  } else {
+    candidates.push({
+      id: genId(),
+      name,
+      surname,
+      customFields,
+      scores: [null, null, null],
+      notes: ''
+    });
+  }
+
+  saveData();
+  renderList();
+  showListView();
+}
+
+// ── Detail view ──
+function showDetail(id) {
+  viewingId = id;
+  const c = candidates.find(x => x.id === id);
+  if (!c) return;
+  const rank = candidates.indexOf(c) + 1;
+  const avg = calcAvg(c.scores);
+
+  document.getElementById('detailTitle').textContent = c.name + ' ' + c.surname;
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-header-card">
+      <div class="detail-name">${esc(c.name)} ${esc(c.surname)}</div>
+      <div class="detail-rank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z"/></svg>
+        Posizione #${rank}
+      </div>
+      ${c.customFields.length > 0 ? `
+        <div class="detail-custom-fields">
+          ${c.customFields.filter(f => f.label || f.value).map(f => `
+            <div class="detail-field">
+              <span class="detail-field-label">${esc(f.label || 'Campo')}:</span>
+              <span class="detail-field-value">${esc(f.value)}</span>
+            </div>
+          `).join('')}
+        </div>` : ''}
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Punteggi</div>
+      <div class="detail-scores-grid">
+        ${SCORE_LABELS.map((label, si) => `
+          <div class="detail-score-card">
+            <div class="detail-score-name">${esc(label)}</div>
+            <div class="detail-score-value">${c.scores[si] != null ? c.scores[si] : '–'}</div>
+          </div>
+        `).join('')}
+        <div class="detail-score-card avg">
+          <div class="detail-score-name">Media</div>
+          <div class="detail-score-value">${avg || '–'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Note</div>
+      <textarea class="notes-area" placeholder="Scrivi le tue note su questo candidato..." 
+                oninput="updateNotes('${c.id}', this.value)">${esc(c.notes)}</textarea>
+    </div>
+  `;
+  switchView('detailView');
+}
+
+function updateNotes(id, val) {
+  const c = candidates.find(x => x.id === id);
+  if (c) { c.notes = val; saveData(); }
+}
+
+// ── Delete ──
+function confirmDeleteCandidate() {
+  document.getElementById('deleteDialog').classList.add('active');
+}
+function closeDialog() {
+  document.getElementById('deleteDialog').classList.remove('active');
+}
+function deleteCandidate() {
+  candidates = candidates.filter(c => c.id !== viewingId);
+  saveData();
+  closeDialog();
+  renderList();
+  showListView();
+}
+
+// ── Navigation ──
+function showListView() { renderList(); switchView('listView'); }
+function switchView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Init ──
+loadData();
+renderList();
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
