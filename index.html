@@ -474,6 +474,22 @@ function calcSum(scores) {
   return valid.reduce((a,b) => a + Number(b), 0);
 }
 
+function computeScoreRanks() {
+  const ranked = [...candidates]
+    .map(c => ({ id: c.id, sum: calcSum(c.scores) }))
+    .sort((a, b) => {
+      if (a.sum === null && b.sum === null) return 0;
+      if (a.sum === null) return 1;
+      if (b.sum === null) return -1;
+      return b.sum - a.sum;
+    });
+  const ranks = {};
+  ranked.forEach((item, i) => {
+    ranks[item.id] = item.sum !== null ? i + 1 : null;
+  });
+  return ranks;
+}
+
 // ── Search ──
 function filterList() {
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -488,11 +504,16 @@ function filterList() {
 
 // ── Sorting ──
 function toggleSort(field) {
+  // Before changing sort, apply current sorted order as new manual order
+  if (currentSort !== 'manual') {
+    candidates = getSortedCandidates();
+    saveData();
+  }
+
   if (field === 'manual') {
     currentSort = 'manual';
     sortDirection = 'asc';
   } else if (currentSort === field) {
-    // Same field: toggle direction, or go back to manual
     if (sortDirection === 'asc') { sortDirection = 'desc'; }
     else { currentSort = 'manual'; sortDirection = 'asc'; }
   } else {
@@ -565,9 +586,12 @@ function renderList() {
   const isManual = currentSort === 'manual';
   const displayList = getSortedCandidates();
 
+  // Pre-compute score-based ranks
+  const scoreRanks = computeScoreRanks();
+
   container.innerHTML = displayList.map((c, displayIdx) => {
     const realIndex = candidates.indexOf(c);
-    const rankNum = displayIdx + 1;
+    const rankNum = scoreRanks[c.id] || '–';
     const sum = calcSum(c.scores);
     const customPreview = c.customFields.filter(f => f.label && f.value).map(f => f.value).join(' · ');
 
@@ -585,7 +609,7 @@ function renderList() {
             <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
           </svg>
         </div>` : ''}
-        <div class="rank-badge ${rankNum === 1 ? 'top' : ''}">${rankNum}</div>
+        <div class="rank-badge ${rankNum === 1 ? 'top' : ''}">${rankNum !== null ? rankNum : '–'}</div>
         <div class="card-info" onclick="showDetail('${c.id}')">
           <div class="card-name">${esc(c.name)} ${esc(c.surname)}</div>
           ${c.region ? `<div class="card-region">${esc(c.region)}</div>` : ''}
@@ -762,7 +786,8 @@ function showDetail(id) {
   viewingId = id;
   const c = candidates.find(x => x.id === id);
   if (!c) return;
-  const rank = candidates.indexOf(c) + 1;
+  const scoreRanks = computeScoreRanks();
+  const rank = scoreRanks[c.id];
   const sum = calcSum(c.scores);
 
   document.getElementById('detailTitle').textContent = c.name + ' ' + c.surname;
@@ -772,7 +797,7 @@ function showDetail(id) {
       ${c.region ? `<div class="detail-region">${esc(c.region)}</div>` : ''}
       <div class="detail-rank">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z"/></svg>
-        Posizione #${rank}
+        Posizione #${rank !== null ? rank : '–'}
       </div>
       ${c.customFields.length > 0 ? `
         <div class="detail-custom-fields">
