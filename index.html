@@ -567,7 +567,7 @@ function renderList() {
 
   container.innerHTML = displayList.map((c, displayIdx) => {
     const realIndex = candidates.indexOf(c);
-    const rankNum = realIndex + 1;
+    const rankNum = displayIdx + 1;
     const sum = calcSum(c.scores);
     const customPreview = c.customFields.filter(f => f.label && f.value).map(f => f.value).join(' · ');
 
