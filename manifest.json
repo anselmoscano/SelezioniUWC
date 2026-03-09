@@ -1,7 +1,7 @@
 {
-  "name": "Selezione Candidati",
-  "short_name": "Selezione",
-  "description": "App per la gestione e valutazione dei candidati",
+  "name": "Selezioni UWC",
+  "short_name": "Selezioni UWC",
+  "description": "App per la gestione e valutazione dei candidati UWC",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f1117",
