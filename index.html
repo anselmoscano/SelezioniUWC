@@ -114,6 +114,46 @@ html, body {
   color: var(--text-dim);
   opacity: 0.6;
 }
+.sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.sort-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.sort-btn.active {
+  background: rgba(200,164,110,0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.sort-btn:active { opacity: 0.7; }
+.sort-arrow { font-size: 0.7rem; }
 
 .btn {
   display: inline-flex;
@@ -310,6 +350,24 @@ html, body {
   </div>
   <div class="search-bar" id="searchBarWrap" style="display:none;">
     <input type="text" class="search-input" id="searchInput" placeholder="Cerca candidato..." oninput="filterList()">
+    <div class="sort-bar">
+      <span class="sort-label">Ordina:</span>
+      <button class="sort-btn" onclick="toggleSort('manual')">
+        <span class="sort-btn-text" id="sortBtn-manual">Manuale</span>
+      </button>
+      <button class="sort-btn" onclick="toggleSort('name')">
+        <span class="sort-btn-text" id="sortBtn-name">Nome</span>
+        <span class="sort-arrow" id="sortArrow-name"></span>
+      </button>
+      <button class="sort-btn" onclick="toggleSort('surname')">
+        <span class="sort-btn-text" id="sortBtn-surname">Cognome</span>
+        <span class="sort-arrow" id="sortArrow-surname"></span>
+      </button>
+      <button class="sort-btn" onclick="toggleSort('score')">
+        <span class="sort-btn-text" id="sortBtn-score">Totale</span>
+        <span class="sort-arrow" id="sortArrow-score"></span>
+      </button>
+    </div>
   </div>
   <div class="scroll-area" id="candidateList"></div>
   <div class="fab">
@@ -390,6 +448,8 @@ let candidates = [];
 let editingId = null;
 let viewingId = null;
 let dragSrcIndex = null;
+let currentSort = 'manual'; // 'manual', 'name', 'surname', 'score'
+let sortDirection = 'asc';  // 'asc' or 'desc'
 
 function loadData() {
   try {
@@ -418,12 +478,63 @@ function calcSum(scores) {
 function filterList() {
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
   document.querySelectorAll('.candidate-card').forEach(card => {
-    const idx = parseInt(card.dataset.index);
-    const c = candidates[idx];
+    const cid = card.dataset.cid;
+    const c = candidates.find(x => x.id === cid);
     if (!c) return;
     const haystack = (c.name + ' ' + c.surname + ' ' + c.region).toLowerCase();
     card.classList.toggle('hidden', query.length > 0 && !haystack.includes(query));
   });
+}
+
+// ── Sorting ──
+function toggleSort(field) {
+  if (field === 'manual') {
+    currentSort = 'manual';
+    sortDirection = 'asc';
+  } else if (currentSort === field) {
+    // Same field: toggle direction, or go back to manual
+    if (sortDirection === 'asc') { sortDirection = 'desc'; }
+    else { currentSort = 'manual'; sortDirection = 'asc'; }
+  } else {
+    currentSort = field;
+    sortDirection = (field === 'score') ? 'desc' : 'asc';
+  }
+  updateSortUI();
+  renderList();
+}
+
+function updateSortUI() {
+  ['manual', 'name', 'surname', 'score'].forEach(f => {
+    const btn = document.getElementById('sortBtn-' + f)?.closest('.sort-btn');
+    if (btn) btn.classList.toggle('active', currentSort === f);
+    const arrow = document.getElementById('sortArrow-' + f);
+    if (arrow) {
+      if (currentSort === f && f !== 'manual') {
+        arrow.textContent = sortDirection === 'asc' ? '▲' : '▼';
+      } else {
+        arrow.textContent = '';
+      }
+    }
+  });
+}
+
+function getSortedCandidates() {
+  if (currentSort === 'manual') return candidates;
+  const sorted = [...candidates];
+  const dir = sortDirection === 'asc' ? 1 : -1;
+  sorted.sort((a, b) => {
+    if (currentSort === 'name') {
+      return dir * a.name.localeCompare(b.name, 'it');
+    } else if (currentSort === 'surname') {
+      return dir * a.surname.localeCompare(b.surname, 'it');
+    } else if (currentSort === 'score') {
+      const sa = calcSum(a.scores) ?? -1;
+      const sb = calcSum(b.scores) ?? -1;
+      return dir * (sa - sb);
+    }
+    return 0;
+  });
+  return sorted;
 }
 
 // ── Render list ──
@@ -449,26 +560,32 @@ function renderList() {
 
   countEl.textContent = candidates.length + ' candidat' + (candidates.length === 1 ? 'o' : 'i');
   searchWrap.style.display = 'block';
+  updateSortUI();
 
-  container.innerHTML = candidates.map((c, i) => {
+  const isManual = currentSort === 'manual';
+  const displayList = getSortedCandidates();
+
+  container.innerHTML = displayList.map((c, displayIdx) => {
+    const realIndex = candidates.indexOf(c);
+    const rankNum = realIndex + 1;
     const sum = calcSum(c.scores);
     const customPreview = c.customFields.filter(f => f.label && f.value).map(f => f.value).join(' · ');
 
     return `
-    <div class="candidate-card" data-index="${i}" id="card-${i}">
+    <div class="candidate-card" data-index="${realIndex}" data-cid="${c.id}" id="card-${realIndex}">
       <div class="card-main">
-        <div class="drag-handle"
-             ontouchstart="dragStart(event, ${i})"
+        ${isManual ? `<div class="drag-handle"
+             ontouchstart="dragStart(event, ${realIndex})"
              ontouchmove="dragMove(event)"
-             ontouchend="dragEnd(event, ${i})"
-             onmousedown="dragStart(event, ${i})">
+             ontouchend="dragEnd(event, ${realIndex})"
+             onmousedown="dragStart(event, ${realIndex})">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
             <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
             <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
           </svg>
-        </div>
-        <div class="rank-badge ${i === 0 ? 'top' : ''}">${i + 1}</div>
+        </div>` : ''}
+        <div class="rank-badge ${rankNum === 1 ? 'top' : ''}">${rankNum}</div>
         <div class="card-info" onclick="showDetail('${c.id}')">
           <div class="card-name">${esc(c.name)} ${esc(c.surname)}</div>
           ${c.region ? `<div class="card-region">${esc(c.region)}</div>` : ''}
